@@ -64,6 +64,18 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def get_task_content(task_data):
+    """Zwraca treść zadania — obsługuje stary format (string) i nowy (dict)"""
+    if isinstance(task_data, dict):
+        return task_data.get("tresc", "")
+    return task_data  # stary format — czysty string
+
+def get_task_name(task_data, task_id):
+    """Zwraca nazwę zadania — fallback na skrócone ID"""
+    if isinstance(task_data, dict):
+        return task_data.get("nazwa", task_id[:8])
+    return task_id[:8]
+
 def initialize_data_files():
     """Inicjalizuje pliki JSON z danych z plików .py (tylko przy pierwszym uruchomieniu)"""
     # Inicjalizuj użytkowników
@@ -253,7 +265,7 @@ def pokaz_zadanie(task_id):
     end_time = zadania_czasy[username][task_id]["end"]
     end_time_iso = end_time.isoformat() if end_time else None
 
-    tresc = CURRENT_TASKS[task_id]
+    tresc = get_task_content(CURRENT_TASKS[task_id])
     return render_template("zadanie.html", 
                          task_id=task_id, 
                          tresc=tresc, 
@@ -306,7 +318,9 @@ def upload_solution(task_id):
         # Bezpieczna nazwa pliku
         original_filename = secure_filename(file.filename) if file.filename else "image.jpg"
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = secure_filename(f"{username}_{task_id}_{timestamp}.jpg")
+        task_name = get_task_name(CURRENT_TASKS.get(task_id, task_id), task_id)
+        safe_task_name = secure_filename(task_name)
+        filename = secure_filename(f"{username}_{safe_task_name}_{timestamp}.jpg")
         
         user_folder = os.path.join(UPLOAD_FOLDER, secure_filename(username))
         os.makedirs(user_folder, exist_ok=True)
@@ -371,9 +385,16 @@ def upload_solution(task_id):
 def get_task_times():
     if "username" not in session or session.get("role") != "admin":
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     try:
-        return jsonify(task_times)
+        enriched = []
+        for record in task_times:
+            r = record.copy()
+            task_id = r.get("task_id", "")
+            task_data = CURRENT_TASKS.get(task_id)
+            r["task_name"] = get_task_name(task_data, task_id) if task_data else task_id[:8]
+            enriched.append(r)
+        return jsonify(enriched)
     except Exception as e:
         print(f"Błąd podczas pobierania czasów: {e}")
         return jsonify({"error": "Błąd pobierania czasów"}), 500

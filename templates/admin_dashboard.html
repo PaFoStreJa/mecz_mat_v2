@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>Panel Admina</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='style.css') }}"
@@ -958,7 +959,7 @@
 
             tr.innerHTML = `
               <td>${row.username}</td>
-              <td title="${row.task_id}">${row.task_id.substring(0, 8)}...</td>
+              <td title="${row.task_id}">${row.task_name || row.task_id.substring(0, 8)}</td>
               <td>${startDate}</td>
               <td>${endDate}</td>
               <td>${row.duration || "-"}</td>
@@ -1177,25 +1178,43 @@
         const container = document.getElementById("tasks-container");
         container.innerHTML = "";
 
-        Object.entries(currentTasks).forEach(([taskId, content]) => {
-          const taskDiv = document.createElement("div");
-          taskDiv.className = "task-editor";
-          taskDiv.innerHTML = `
-            <div class="task-row">
-              <textarea class="form-input form-textarea" 
-                        onchange="updateTaskContent('${taskId}', this.value)" 
-                        placeholder="Treść zadania">${content}</textarea>
-              <div>
+        Object.entries(currentTasks).forEach(([taskId, taskData]) => {
+            // Obsługa starego formatu (string) i nowego (dict)
+            const isNewFormat = typeof taskData === "object" && taskData !== null;
+            const nazwa = isNewFormat ? (taskData.nazwa || "") : "";
+            const tresc = isNewFormat ? (taskData.tresc || "") : taskData;
+
+            const taskDiv = document.createElement("div");
+            taskDiv.className = "task-editor";
+            taskDiv.innerHTML = `
                 <div style="margin-bottom: 10px;">
-                  <small style="color: #888; word-break: break-all;">ID: ${taskId}</small>
+                    <label style="color: #aaa; font-size: 13px; display: block; margin-bottom: 4px;">Nazwa zadania (widoczna tylko dla admina)</label>
+                    <input type="text" class="form-input" value="${nazwa}"
+                            oninput="updateTaskField('${taskId}', 'nazwa', this.value)"
+                            placeholder="np. Wieże Mariackie"
+                            style="width: 100%; box-sizing: border-box;">
                 </div>
-                <button class="btn-danger btn-small" onclick="deleteTask('${taskId}')">Usuń zadanie</button>
-              </div>
-            </div>
-          `;
-          container.appendChild(taskDiv);
-        });
-      }
+                <div class="task-row">
+                    <textarea class="form-input form-textarea"
+                                oninput="updateTaskField('${taskId}', 'tresc', this.value)"
+                                placeholder="Treść zadania">${tresc}</textarea>
+                    <div>
+                        <div style="margin-bottom: 10px;">
+                            <small style="color: #888; word-break: break-all;">ID: ${taskId}</small>
+                        </div>
+                        <button class="btn-small" onclick="downloadQR('${taskId}')"
+                                style="background-color: #7c4dff; color: white; margin-bottom: 8px; width: 100%;">
+                            📥 Pobierz QR
+                        </button>
+                        <button class="btn-danger btn-small" onclick="deleteTask('${taskId}')" style="width: 100%;">
+                            Usuń zadanie
+                        </button>
+                    </div>
+                </div>
+             `;
+        container.appendChild(taskDiv);
+      });
+    }
 
       // Aktualizuje pole użytkownika
       function updateUserField(oldUsername, field, newValue) {
@@ -1221,10 +1240,52 @@
       }
 
       // Aktualizuje treść zadania
-      function updateTaskContent(taskId, newContent) {
-        currentTasks[taskId] = newContent;
-      }
+      function updateTaskField(taskId, field, value) {
+        // Jeśli zadanie jest jeszcze w starym formacie — konwertuj
+        if (typeof currentTasks[taskId] === "string") {
+            currentTasks[taskId] = { nazwa: "", tresc: currentTasks[taskId] };
+        }
+        currentTasks[taskId][field] = value;
+       }
+        function downloadQR(taskId) {
+  const taskData = currentTasks[taskId];
+  const isNewFormat = typeof taskData === "object" && taskData !== null;
+  const nazwa = isNewFormat ? (taskData.nazwa || "").trim() : "";
+  const safeName = nazwa
+    ? nazwa.replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ _-]/g, "").replace(/\s+/g, "_")
+    : taskId.substring(0, 8);
 
+  // Tymczasowy kontener niewidoczny dla użytkownika
+  const tempDiv = document.createElement("div");
+  tempDiv.style.position = "fixed";
+  tempDiv.style.left = "-9999px";
+  document.body.appendChild(tempDiv);
+
+  // Generuj QR z ID zadania jako treścią
+  const qr = new QRCode(tempDiv, {
+    text: taskId,
+    width: 512,
+    height: 512,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+
+  // Poczekaj na wyrenderowanie i pobierz
+  setTimeout(() => {
+    const canvas = tempDiv.querySelector("canvas");
+    if (!canvas) {
+      alert("Błąd generowania QR — spróbuj ponownie.");
+      document.body.removeChild(tempDiv);
+      return;
+    }
+    const link = document.createElement("a");
+    link.download = `QR_${safeName}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    document.body.removeChild(tempDiv);
+  }, 200);
+}
       // Dodaje nowego użytkownika
       function addNewUser() {
         const newUsername = prompt("Podaj nazwę nowego użytkownika:");
