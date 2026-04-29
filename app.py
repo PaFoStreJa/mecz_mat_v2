@@ -258,7 +258,7 @@ def pokaz_zadanie(task_id):
         zadania_czasy[username] = {}
 
     if task_id not in zadania_czasy[username]:
-        zadania_czasy[username][task_id] = {"start": datetime.now(), "end": None}
+        zadania_czasy[username][task_id] = {"start": datetime.utcnow(), "end": None}
 
     start_time = zadania_czasy[username][task_id]["start"]
     start_time_iso = start_time.isoformat()
@@ -282,7 +282,7 @@ def zakoncz_zadanie(task_id):
     if username not in zadania_czasy or task_id not in zadania_czasy[username]:
         return jsonify({"error": "Brak danych o zadaniu"}), 400
 
-    zadania_czasy[username][task_id]["end"] = datetime.now()
+    zadania_czasy[username][task_id]["end"] = datetime.utcnow()
     return jsonify({"status": "zakończono", "task_id": task_id})
 
 @app.route("/upload_solution/<task_id>", methods=["POST"])
@@ -317,7 +317,7 @@ def upload_solution(task_id):
 
         # Bezpieczna nazwa pliku
         original_filename = secure_filename(file.filename) if file.filename else "image.jpg"
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         task_name = get_task_name(CURRENT_TASKS.get(task_id, task_id), task_id)
         safe_task_name = secure_filename(task_name)
         filename = secure_filename(f"{username}_{safe_task_name}_{timestamp}.jpg")
