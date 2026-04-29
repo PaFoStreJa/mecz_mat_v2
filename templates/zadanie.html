@@ -79,15 +79,10 @@
       </form>
 
       <div id="camera-container" style="display: none; margin-top: 20px">
-        <video id="camera" width="320" height="240" autoplay></video>
+        <video id="camera" style="width: 100%; aspect-ratio: 16/9;" autoplay playsinline></video>
         <br />
         <button id="take-photo-btn">Zrób zdjęcie</button>
-        <canvas
-          id="canvas"
-          width="320"
-          height="240"
-          style="display: none"
-        ></canvas>
+        <canvas id="canvas" style="display: none"></canvas>
       </div>
     </div>
 
@@ -106,7 +101,13 @@
             cameraContainer.style.display = "block";
 
             try {
-              stream = await navigator.mediaDevices.getUserMedia({ video: true });
+              stream = await navigator.mediaDevices.getUserMedia({ video: {
+                                                                    facingMode: { exact: "environment" },  // tylna kamera
+                                                                    aspectRatio: 16 / 9,
+                                                                    width: { ideal: 1920 },
+                                                                    height: { ideal: 1080 }
+                                                                    }
+                                                                });
               video.srcObject = stream;
             } catch (err) {
               alert("Nie udało się uzyskać dostępu do kamery: " + err.message);
@@ -115,6 +116,8 @@
           });
 
           takePhotoBtn.addEventListener("click", async () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             stream.getTracks().forEach((track) => track.stop());
             cameraContainer.style.display = "none";
