@@ -627,8 +627,13 @@ def update_tasks():
         for task_id, content in data.items():
             if not task_id.strip():
                 return jsonify({"error": "ID zadania nie może być puste"}), 400
-            if not content.strip():
-                return jsonify({"error": f"Treść zadania '{task_id}' nie może być pusta"}), 400
+                # Obsługa starego formatu (string) i nowego (dict)
+            if isinstance(content, dict):
+                if not content.get("tresc", "").strip():
+                    return jsonify({"error": f"Treść zadania '{task_id}' nie może być pusta"}), 400
+            else:
+                if not content.strip():
+                    return jsonify({"error": f"Treść zadania '{task_id}' nie może być pusta"}), 400
         
         # Aktualizuj globalne dane
         global CURRENT_TASKS
