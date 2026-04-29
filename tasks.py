@@ -1,0 +1,24 @@
+TASKS = {
+"u6m6FUgnRJRtu3JjUUESw8KPD":"""Legenda głosi, że kościół Mariacki budowało dwóch braci Bartłomiej i Grzegorz, którzy byli wspaniałymi budowniczymi znanymi w całym kraju. Dlatego właśnie oni otrzymali zadanie wybudowania wspaniałego kościoła na krakowskim rynku. Był jednak pewien problem. Bracia bardzo się nienawidzili i dlatego wspólna praca nie wchodziła w grę. Każdy z nich miał wybudować swoją wieżę. Każdy z braci na przemian przez rok budował i przez rok odpoczywał. Planowano zakończyć budowę po sześciu latach.
+Rok pierwszy: Bartłomiej wybudował niesamowicie wysoką wieżę.
+Rok drugi: Grzegorz buduje wieżę półtora razy wyższą od wieży Bartłomieja.
+Rok trzeci: Bartłomiej nie daje za wygraną. Jego wieża jest półtora razy wyższa od wieży Grzegorza Rok czwarty: Grzegorz nie odpuszcza. Wzniósł wieżę półtora razy wyższą od wieży Bartłomieja
+Rok piąty: Bartłomiej pracuje bez wytchnienia i wznosi wieżę półtora razy wyższą od wieży Grzegorza Rok szósty: Grzegorz dobudował jedynie 15 m swojej wieży i wtedy doszło do tragedii. Zazdrosny Bartłomiej w połowie roku zabił swojego brata i budowa nie ruszyła już więcej.
+Wieża podstępnego Bartłomieja okazała się po sześciu latach o 65 metrów wyższa niż po pierwszym roku prac.
+O ile metrów ostatecznie wieża Bartłomieja okazała się wyższa od wieży Grzegorza?""",
+
+"RJ4bRdpwgxxjxLhPZc7F6ZBTF":"""Przed urodzinami swojego męża, Władysława Jagiełły, królowa Jadwiga zaprosiła do siebie zamorskich kupców i nakazała przywieźć kolorowe ognie, strzelające w niebo (tak nazwała ona fajerwerki), za co obiecała ogromną nagrodę. Czasu zostało mało, kilka tygodni i jeden z kupców, zamiast wyruszyć w drogę, zamówił 67 fajerwerków w trzech kolorach: czerwonym, żółtym i zielonym u krakowskiego chemika-studenta i jako pierwszy dostarczył je królowej Jadwidze. Podczas uroczystości widzowie zobaczyli, że 47 wybuchów miało kolor czerwony i 35 kolor żółty, przy czym 23 wybuchy miało kolor czerwony i żółty jednocześnie. Oprócz tego, 20 wybuchów było zielonych, a 12 czerwonych i zielonych, 11 żółtych i zielonych, a 5 w trzech kolorach jednocześnie. Ile fajerwerków nie wybuchło?""",
+
+"C9JjL4JkgSbCGqmQmGLM2Tsud":"""Jest pewna liczba trzycyfrowa, w której cyfra jedności jest 1,5 raza mniejsza od cyfry dziesiątek i o 2 większa od cyfry setek. Suma wszystkich cyfr, z których składa się liczba, jest równa 19. Jaka to liczba?""",
+
+"ZZ8KZVHwKN5ZxsLCyqnwSdVD6":"""Księgarnia,,Poezyje" obniżyła cenę tomiku poezji,,Koniec i początek" Wisławy Szymborskiej w dniu jej urodzin o 15%. Dwa tygodnie później ponownie obniżyli cenę tomiku o 15%. Z powodu dużego popytu, księgarnia zmuszona była do podniesienia ceny o 10%. Powtórzyła ten proces również tydzień później. Gdyby otrzymaną cenę końcową podnieść jeszcze o X%, to towar by był sprzedany po cenie początkowej, sprzed obniżki. Wyznacz X. Wyniki w ułamkach dziesiętnych zaokrąglaj do czterech miejsc po przecinku, a wyniki w procentach zaokrąglaj do dwóch miejsc po przecinku.""",
+
+"VtSyFxUa3MQYZ4SaFDzPpUPpD":"""W 1820 roku, kiedy Florian Straszewski wraz z Komitetem Ekonomicznym zaczęli wytyczać Planty Krakowskie, spytano go w jakim jest wieku. Florian odpowiedział, że jeśli swój wiek sprzed 22 lat pomnoży przez swój wiek za 4 lata, to uzyska swoją datę urodzenia. W jakim roku urodził się Straszewski?
+UWAGA! Jeśli w przesłanej odpowiedzi będzie podany sam wiek Straszewskiego bez żadnych obliczeń, to zespół otrzymuje za zadanie O pkt. (wiek można sprawdzić w sieci)
+Wskazówki:
+1. Najlepiej przyjąć, że wiek Floriana w 1820 roku to X oraz spróbować stworzyć równanie z funkcją kwadratową.
+2. W udzielaniu odpowiedzi kieruj się logicznym myśleniem dotyczącym wieku.""",
+
+"LnSUG3kHAE7V6FZCEQgNhwdsD":"""Tatarzy nadciągali do Krakowa z południowego wschodu. Jako pierwszy wypatrzył ich z wieży młody chłopak, który natychmiast chwycił swoją trąbkę i zaczął trąbić na alarm. Mieszkańcy Krakowa natychmiast podążyli na mury obronne. Wtem jedna z tatarskich strzał przebiła gardło trębaczowi i muzyka ucichła. Jednak mieszkańcy miasta byli już przygotowani do obrony. W południowo- wschodnim krańcu murów w samym rogu stanął dowódca obrońców i złowrogim wzrokiem wpatrywał się w najeźdźców. Po jego prawej stronie wzdłuż 300-metrowego muru dokładnie co 4 metry stał obrońca. Po jego lewej stronie wzdłuż 200-metrowego muru dokładnie co 2,5 metra stał obrońca. Dowódca dał sygnał do wystrzału. Każdy z obrońców (wraz z dowódcą) wystrzelił po dwie strzały. Obrońcy po lewej stronie mieli celność na poziomie 40%, podczas gdy u obrońców po prawej stronie prawdopodobieństwo trafienia było o 50% wyższe. Każda strzała, która trafiła w Tatarów, była dla nich śmiertelna. Dowódca nie chybił ani razu. W rezultacie na polu bitwy pozostało tylko pół tuzina Tatarów, którzy uciekli w popłochu.
+Ilu Tatarów zaatakowało Kraków?""",
+}

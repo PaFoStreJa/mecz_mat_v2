@@ -1,0 +1,257 @@
+/* === GLOBALNE USTAWIENIA === */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", sans-serif;
+  background: linear-gradient(135deg, #1e1e2f, #12121a);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  color: #f0f0f0;
+}
+
+/* === LOGIN FORMULARZ === */
+.login-container {
+  background: rgba(40, 40, 55, 0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  width: 90%;
+  max-width: 400px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-form h1 {
+  margin-bottom: 20px;
+  text-align: center;
+  color: #ffffff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.login-form input {
+  padding: 12px;
+  margin-bottom: 15px;
+  border: none;
+  border-radius: 12px;
+  background-color: #2b2b3d;
+  color: #ffffff;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.login-form input::placeholder {
+  color: #aaa;
+}
+
+.login-form input:focus {
+  outline: none;
+  background-color: #3b3b50;
+}
+
+.login-form button {
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background-color: #4f78ff;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.login-form button:hover {
+  background-color: #345ee0;
+}
+
+.error {
+  background-color: #ff4c4c20;
+  color: #ff9999;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* === DASHBOARD === */
+.dashboard-container {
+  background: rgba(40, 40, 55, 0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  width: 90%;
+  max-width: 1000px;
+  text-align: center;
+  margin: 2rem auto;
+  color: #f0f0f0;
+}
+
+.dashboard-title {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  color: #ffffff;
+}
+
+.dashboard-subtitle {
+  color: #cccccc;
+  margin-bottom: 20px;
+}
+
+/* === KAFELKI === */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tile {
+  background-color: #2b2b3d;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  color: white;
+}
+
+.tile:hover {
+  transform: scale(1.03);
+  background-color: #3a3a55;
+}
+
+/* === PANEL ZAWARTOŚCI === */
+.content-panel > div {
+  background-color: #1e1e2f;
+  padding: 1rem;
+  border-radius: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  margin-bottom: 1rem;
+}
+
+.hidden {
+  display: none;
+}
+
+/* === MAPA === */
+#map {
+  width: 100%;
+  height: 400px;
+  border-radius: 1rem;
+  border: 2px solid #333;
+}
+
+/* === PRZYCISK WYLOGOWANIA === */
+.logout-button {
+  margin-top: 25px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  background-color: #4f78ff;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.logout-button:hover {
+  background-color: #345ee0;
+}
+
+/* === SKANER QR === */
+.qr-scanner {
+  width: 100%;
+  max-width: 400px;
+  margin: 20px auto;
+  border: 2px solid #333;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.qr-result {
+  margin-top: 15px;
+  font-size: 1rem;
+  color: #00c853;
+}
+
+/* === RESPONSYWNOŚĆ === */
+@media (max-width: 600px) {
+  .dashboard-title {
+    font-size: 1.4rem;
+  }
+
+  .tile h2 {
+    font-size: 1rem;
+  }
+
+  .logout-button {
+    float: none;
+    display: block;
+    margin: 1rem auto 0 auto;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+#task-times-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+#task-times-table th,
+#task-times-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gallery-item {
+  width: 150px;
+  text-align: center;
+}
+
+.gallery-item img {
+  width: 100%;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.gallery-item img:hover {
+  transform: scale(1.05);
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 10px;
+}

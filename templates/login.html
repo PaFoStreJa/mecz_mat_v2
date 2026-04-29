@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logowanie</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+    />
+  </head>
+  <body>
+    <div class="login-container">
+      <form class="login-form" method="post">
+        <h1>LOGOWANIE</h1>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <input
+          type="text"
+          name="username"
+          placeholder="Nazwa użytkownika"
+          required
+        />
+        <input type="password" name="password" placeholder="Hasło" required />
+        <button type="submit">Zaloguj</button>
+      </form>
+    </div>
+  </body>
+</html>
