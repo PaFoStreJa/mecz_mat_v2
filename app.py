@@ -4,17 +4,13 @@ import json
 from dotenv import load_dotenv
 from datetime import datetime
 from werkzeug.utils import secure_filename
-import hashlib
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # Konfiguracja ścieżek i folderów
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Katalog gdzie jest app.py
 DATA_DIR = os.path.join(BASE_DIR, 'data')
-TASK_TIMES_FILE = os.path.join(DATA_DIR, 'task_times.json')
-SOLUTIONS_FILE = os.path.join(DATA_DIR, 'zadania_rozwiazania.json')
-LOCATIONS_FILE = os.path.join(DATA_DIR, 'players_location.json')
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'solutions')  # Zawsze w folderze projektu
-USERS_FILE = os.path.join(DATA_DIR, 'users.json')
-TASKS_FILE = os.path.join(DATA_DIR, 'tasks.json')
 
 # Tworzenie folderów
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -34,30 +30,70 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'raw'}
 
 load_dotenv()
 
+def init_firebase():
+    if firebase_admin._apps:
+        return firestore.client()
+
+    # Opcja 1: zmienna środowiskowa (produkcja na Render)
+    firebase_json = os.getenv("FIREBASE_CREDENTIALS")
+    if firebase_json:
+        try:
+            cred_dict = json.loads(firebase_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("Firebase: zainicjalizowano ze zmiennej środowiskowej")
+            return firestore.client()
+        except Exception as e:
+            print(f"Firebase: błąd inicjalizacji ze zmiennej: {e}")
+
+    # Opcja 2: lokalny plik firebase_key.json (development)
+    key_path = os.path.join(BASE_DIR, 'firebase_key.json')
+    if os.path.exists(key_path):
+        cred = credentials.Certificate(key_path)
+        firebase_admin.initialize_app(cred)
+        print("Firebase: zainicjalizowano z pliku firebase_key.json")
+        return firestore.client()
+
+    raise RuntimeError("Brak konfiguracji Firebase!")
+
+db = init_firebase()
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SK", "fallback-secret-key-change-me")
 
 # Funkcje pomocnicze do zarządzania danymi
-def load_json_file(filepath, default_value):
-    """Bezpieczne ładowanie pliku JSON"""
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Błąd odczytu {filepath}: {e}")
-            return default_value
-    return default_value
-
-def save_json_file(filepath, data):
-    """Bezpieczne zapisywanie pliku JSON"""
+def fs_get_doc(collection, doc_id, default=None):
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+        doc = db.collection(collection).document(doc_id).get()
+        return doc.to_dict() if doc.exists else default
+    except Exception as e:
+        print(f"Firestore GET błąd ({collection}/{doc_id}): {e}")
+        return default
+
+def fs_set_doc(collection, doc_id, data):
+    try:
+        db.collection(collection).document(doc_id).set(data)
         return True
-    except IOError as e:
-        print(f"Błąd zapisu {filepath}: {e}")
+    except Exception as e:
+        print(f"Firestore SET błąd ({collection}/{doc_id}): {e}")
         return False
+
+def fs_get_collection(collection, default=None):
+    try:
+        docs = db.collection(collection).stream()
+        result = {doc.id: doc.to_dict() for doc in docs}
+        return result if result else (default if default is not None else {})
+    except Exception as e:
+        print(f"Firestore GET kolekcja błąd ({collection}): {e}")
+        return default if default is not None else {}
+
+def fs_get_list(collection, doc_id):
+    try:
+        doc = db.collection(collection).document(doc_id).get()
+        return doc.to_dict().get('items', []) if doc.exists else []
+    except Exception as e:
+        print(f"Firestore GET LIST błąd ({collection}/{doc_id}): {e}")
+        return []
 
 def allowed_file(filename):
     """Sprawdza czy plik ma dozwolone rozszerzenie"""
@@ -76,40 +112,78 @@ def get_task_name(task_data, task_id):
         return task_data.get("nazwa", task_id[:8])
     return task_id[:8]
 
-def initialize_data_files():
-    """Inicjalizuje pliki JSON z danych z plików .py (tylko przy pierwszym uruchomieniu)"""
-    # Inicjalizuj użytkowników
-    if not os.path.exists(USERS_FILE):
-        from users import USERS as DEFAULT_USERS
-        print("Tworzę plik users.json z danych z users.py")
-        save_json_file(USERS_FILE, DEFAULT_USERS)
-    
-    # Inicjalizuj zadania
-    if not os.path.exists(TASKS_FILE):
-        from tasks import TASKS as DEFAULT_TASKS
-        print("Tworzę plik tasks.json z danych z tasks.py")
-        save_json_file(TASKS_FILE, DEFAULT_TASKS)
+def load_users():
+    data = fs_get_collection('users')
+    if data:
+        return data
+    # Fallback: users.json
+    local_path = os.path.join(DATA_DIR, 'users.json')
+    if os.path.exists(local_path):
+        with open(local_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for username, udata in data.items():
+            fs_set_doc('users', username, udata)
+        return data
+    # Fallback: users.py
+    from users import USERS as DEFAULT_USERS
+    for username, udata in DEFAULT_USERS.items():
+        fs_set_doc('users', username, udata)
+    return DEFAULT_USERS
 
-def load_current_users():
-    """Ładuje aktualnych użytkowników z pliku JSON"""
-    return load_json_file(USERS_FILE, {})
+def load_tasks():
+    data = fs_get_collection('tasks')
+    if data:
+        return data
+    local_path = os.path.join(DATA_DIR, 'tasks.json')
+    if os.path.exists(local_path):
+        with open(local_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for task_id, tdata in data.items():
+            if isinstance(tdata, str):
+                tdata = {"nazwa": "", "tresc": tdata}
+            fs_set_doc('tasks', task_id, tdata)
+        return data
+    from tasks import TASKS as DEFAULT_TASKS
+    for task_id, tdata in DEFAULT_TASKS.items():
+        if isinstance(tdata, str):
+            tdata = {"nazwa": "", "tresc": tdata}
+        fs_set_doc('tasks', task_id, tdata)
+    return DEFAULT_TASKS
 
-def load_current_tasks():
-    """Ładuje aktualne zadania z pliku JSON"""
-    return load_json_file(TASKS_FILE, {})
+def load_locations():
+    return fs_get_collection('locations', {})
+
+def load_task_times():
+    data = fs_get_list('task_times', 'all')
+    if not data:
+        local_path = os.path.join(DATA_DIR, 'task_times.json')
+        if os.path.exists(local_path):
+            with open(local_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if data:
+                fs_set_doc('task_times', 'all', {'items': data})
+    return data or []
+
+def load_solutions():
+    raw = fs_get_collection('solutions', {})
+    result = {username: set(udata.get('solved', [])) for username, udata in raw.items()}
+    if not result:
+        local_path = os.path.join(DATA_DIR, 'zadania_rozwiazania.json')
+        if os.path.exists(local_path):
+            with open(local_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            for username, solved in data.items():
+                result[username] = set(solved) if isinstance(solved, list) else set()
+            for username, solved_set in result.items():
+                fs_set_doc('solutions', username, {'solved': list(solved_set)})
+    return result
 
 # Ładowanie danych przy starcie
-initialize_data_files()
-CURRENT_USERS = load_current_users()
-CURRENT_TASKS = load_current_tasks()
-task_times = load_json_file(TASK_TIMES_FILE, [])
-zadania_rozwiazania = load_json_file(SOLUTIONS_FILE, {})
-players_location = load_json_file(LOCATIONS_FILE, {})
-
-# Konwersja set na list dla JSON (jeśli potrzebne)
-for username in zadania_rozwiazania:
-    if isinstance(zadania_rozwiazania[username], list):
-        zadania_rozwiazania[username] = set(zadania_rozwiazania[username])
+CURRENT_USERS = load_users()
+CURRENT_TASKS = load_tasks()
+players_location = load_locations()
+task_times = load_task_times()
+zadania_rozwiazania = load_solutions()
 
 zadania_czasy = {}  # Tymczasowe dane sesji
 
@@ -195,11 +269,10 @@ def update_location():
         players_location[username] = location_data
         
         # Zapisz do pliku z obsługą błędów
-        if save_json_file(LOCATIONS_FILE, players_location):
-            print(f"DEBUG: Zapisano lokalizację dla {username}: {latitude:.6f}, {longitude:.6f}")
+        if fs_set_doc('locations', username, location_data):
             return jsonify({"status": "success", "message": "Lokalizacja zaktualizowana"})
         else:
-            return jsonify({"error": "Błąd zapisu do pliku"}), 500
+            return jsonify({"error": "Błąd zapisu do Firestore"}), 500
             
     except Exception as e:
         print(f"Błąd podczas aktualizacji lokalizacji: {e}")
@@ -342,12 +415,12 @@ def upload_solution(task_id):
         # Oblicz czas wykonania
         if username in zadania_czasy and task_id in zadania_czasy[username]:
             start = zadania_czasy[username][task_id]["start"]
-            end = datetime.now()
+            end = datetime.utcnow()
             zadania_czasy[username][task_id]["end"] = end
             duration = str(end - start)
         else:
-            start = datetime.now()
-            end = datetime.now()
+            start = datetime.utcnow()
+            end = datetime.utcnow()
             duration = "0:00:00"
 
         # Dodaj rekord do task_times
@@ -369,11 +442,8 @@ def upload_solution(task_id):
         for user, solutions in zadania_rozwiazania.items():
             solutions_for_json[user] = list(solutions) if isinstance(solutions, set) else solutions
 
-        if not save_json_file(SOLUTIONS_FILE, solutions_for_json):
-            return jsonify({"error": "Błąd zapisu rozwiązań"}), 500
-            
-        if not save_json_file(TASK_TIMES_FILE, task_times):
-            return jsonify({"error": "Błąd zapisu czasów"}), 500
+        fs_set_doc('solutions', username, {'solved': list(zadania_rozwiazania[username])})
+        fs_set_doc('task_times', 'all', {'items': task_times})
 
         return jsonify({"status": "success", "message": "Rozwiązanie zostało wysłane"})
 
@@ -595,10 +665,16 @@ def update_users():
         CURRENT_USERS = data.copy()
         
         # Zapisz do pliku
-        if save_json_file(USERS_FILE, CURRENT_USERS):
-            return jsonify({"status": "success", "message": f"Zaktualizowano {len(data)} użytkowników"})
-        else:
-            return jsonify({"error": "Błąd zapisu pliku użytkowników"}), 500
+        for username, udata in CURRENT_USERS.items():
+            fs_set_doc('users', username, udata)
+
+        # Usuń użytkowników których już nie ma
+        existing = fs_get_collection('users', {})
+        for old_username in existing:
+            if old_username not in CURRENT_USERS:
+                db.collection('users').document(old_username).delete()
+
+        return jsonify({"status": "success", "message": f"Zaktualizowano {len(data)} użytkowników"})
             
     except Exception as e:
         print(f"Błąd aktualizacji użytkowników: {e}")
@@ -640,10 +716,19 @@ def update_tasks():
         CURRENT_TASKS = data.copy()
         
         # Zapisz do pliku
-        if save_json_file(TASKS_FILE, CURRENT_TASKS):
-            return jsonify({"status": "success", "message": f"Zaktualizowano {len(data)} zadań"})
-        else:
-            return jsonify({"error": "Błąd zapisu pliku zadań"}), 500
+        for task_id, tdata in CURRENT_TASKS.items():
+            if isinstance(tdata, str):
+                tdata = {"nazwa": "", "tresc": tdata}
+                CURRENT_TASKS[task_id] = tdata
+            fs_set_doc('tasks', task_id, tdata)
+
+        # Usuń zadania których już nie ma
+        existing = fs_get_collection('tasks', {})
+        for old_id in existing:
+            if old_id not in CURRENT_TASKS:
+                db.collection('tasks').document(old_id).delete()
+
+        return jsonify({"status": "success", "message": f"Zaktualizowano {len(data)} zadań"})
             
     except Exception as e:
         print(f"Błąd aktualizacji zadań: {e}")
