@@ -6,6 +6,9 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import firebase_admin
 from firebase_admin import credentials, firestore
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Konfiguracja ścieżek i folderów
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Katalog gdzie jest app.py
@@ -57,6 +60,13 @@ def init_firebase():
     raise RuntimeError("Brak konfiguracji Firebase!")
 
 db = init_firebase()
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SK", "fallback-secret-key-change-me")
@@ -394,20 +404,16 @@ def upload_solution(task_id):
         task_name = get_task_name(CURRENT_TASKS.get(task_id, task_id), task_id)
         safe_task_name = secure_filename(task_name)
         filename = secure_filename(f"{username}_{safe_task_name}_{timestamp}.jpg")
-        
-        user_folder = os.path.join(UPLOAD_FOLDER, secure_filename(username))
-        os.makedirs(user_folder, exist_ok=True)
-        filepath = os.path.join(user_folder, filename)
-        
-        print(f"DEBUG: Zapisuję plik: {filepath}")
-        print(f"DEBUG: User folder: {user_folder}")
-        print(f"DEBUG: Upload folder exists: {os.path.exists(UPLOAD_FOLDER)}")
-        
-        # Zapisz plik
-        file.save(filepath)
-        
-        print(f"DEBUG: Plik zapisany pomyślnie: {os.path.exists(filepath)}")
-        print(f"DEBUG: Rozmiar pliku: {os.path.getsize(filepath) if os.path.exists(filepath) else 'BRAK'}")
+
+        public_id = f"solutions/{username}/{filename}"
+        upload_result = cloudinary.uploader.upload(
+            file,
+            public_id=public_id,
+            resource_type="image",
+            overwrite=True
+        )
+        image_url = upload_result.get("secure_url")
+        print(f"DEBUG: Plik wysłany do Cloudinary: {image_url}")
 
         # Dodaj do rozwiązań
         zadania_rozwiazania[username].add(task_id)
@@ -432,7 +438,8 @@ def upload_solution(task_id):
             "duration": duration,
             "filename": filename,
             "original_filename": original_filename,
-            "file_size": os.path.getsize(filepath) if os.path.exists(filepath) else 0
+            "image_url": image_url,
+            "file_size": upload_result.get("bytes", 0)
         }
         task_times.append(record)
 
@@ -474,72 +481,42 @@ def get_gallery():
     """Endpoint do pobierania listy zdjęć w galerii"""
     if "username" not in session or session.get("role") != "admin":
         return jsonify({"error": "Unauthorized"}), 401
-        
+
     gallery = []
     try:
-        if os.path.exists(UPLOAD_FOLDER):
-            for user in os.listdir(UPLOAD_FOLDER):
-                user_path = os.path.join(UPLOAD_FOLDER, user)
-                if os.path.isdir(user_path):
-                    for filename in os.listdir(user_path):
-                        if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                            file_path = os.path.join(user_path, filename)
-                            
-                            # Sprawdź czy plik rzeczywiście istnieje i ma rozmiar > 0
-                            if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                                gallery.append({
-                                    'username': user, 
-                                    'filename': filename, 
-                                    'rel_url': f"uploads/solutions/{user}/{filename}",
-                                    'image_url': url_for('uploaded_file', user=user, filename=filename),
-                                    'static_url': url_for('static', filename=f'uploads/solutions/{user}/{filename}'),
-                                    'direct_path': f'/static/uploads/solutions/{user}/{filename}',
-                                    'full_path': file_path,
-                                    'file_exists': True,
-                                    'file_size': os.path.getsize(file_path)
-                                })
-                            else:
-                                print(f"DEBUG: Pomijam uszkodzony plik: {file_path}")
+        result = cloudinary.api.resources(
+            type="upload",
+            prefix="solutions/",
+            max_results=500
+        )
+        for resource in result.get("resources", []):
+            public_id = resource["public_id"]
+            parts = public_id.split("/")
+            # public_id wygląda tak: solutions/username/filename
+            if len(parts) >= 3:
+                username = parts[1]
+                filename = parts[2]
+                gallery.append({
+                    "username": username,
+                    "filename": filename,
+                    "image_url": resource["secure_url"],
+                    "file_exists": True,
+                    "file_size": resource.get("bytes", 0)
+                })
     except Exception as e:
-        print(f"Błąd podczas pobierania galerii: {e}")
-        return jsonify({"error": f"Błąd podczas pobierania galerii: {str(e)}"}), 500
-        
+        print(f"Błąd pobierania galerii z Cloudinary: {e}")
+        return jsonify({"error": str(e)}), 500
+
     return jsonify(gallery)
 
 @app.route('/uploads/solutions/<user>/<filename>')
 def uploaded_file(user, filename):
-    """Serwuje przesłane pliki"""
     if "username" not in session or session.get("role") != "admin":
         return "Unauthorized", 401
-    
-    try:
-        # Bezpieczne sprawdzenie ścieżki
-        safe_user = secure_filename(user)
-        safe_filename = secure_filename(filename)
-        
-        user_folder = os.path.join(UPLOAD_FOLDER, safe_user)
-        print(f"DEBUG: Szukam pliku w: {user_folder}/{safe_filename}")
-        
-        if not os.path.exists(user_folder):
-            print(f"DEBUG: Folder użytkownika nie istnieje: {user_folder}")
-            return f"User folder not found: {user_folder}", 404
-        
-        file_path = os.path.join(user_folder, safe_filename)
-        if not os.path.exists(file_path):
-            print(f"DEBUG: Plik nie istnieje: {file_path}")
-            return f"File not found: {file_path}", 404
-        
-        if os.path.getsize(file_path) == 0:
-            print(f"DEBUG: Plik jest pusty: {file_path}")
-            return "File is empty", 404
-        
-        print(f"DEBUG: Serwuję plik: {file_path}")
-        # Użyj send_from_directory zamiast send_static_file
-        return send_from_directory(user_folder, safe_filename)
-        
-    except Exception as e:
-        print(f"Błąd podczas serwowania pliku: {e}")
-        return f"Server error: {str(e)}", 500
+
+    public_id = f"solutions/{user}/{filename}"
+    url = cloudinary.utils.cloudinary_url(public_id)[0]
+    return redirect(url)
 
 @app.route("/debug_files")
 def debug_files():
@@ -673,6 +650,11 @@ def update_users():
         for old_username in existing:
             if old_username not in CURRENT_USERS:
                 db.collection('users').document(old_username).delete()
+                try:
+                    cloudinary.api.delete_resources_by_prefix(f"solutions/{old_username}/")
+                    print(f"Usunięto zdjęcia użytkownika {old_username} z Cloudinary")
+                except Exception as e:
+                    print(f"Błąd usuwania zdjęć {old_username}: {e}")
 
         return jsonify({"status": "success", "message": f"Zaktualizowano {len(data)} użytkowników"})
             
