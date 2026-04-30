@@ -622,7 +622,9 @@ def update_users():
         data = request.get_json()
         if not data:
             return jsonify({"error": "Brak danych"}), 400
-        
+        # Blokada usunięcia własnego profilu
+        if session.get("username") not in data:
+            return jsonify({"error": "Nie możesz usunąć własnego profilu"}), 400
         # Walidacja - każdy użytkownik musi mieć login, hasło i rolę
         for username, user_data in data.items():
             if not username.strip():
@@ -653,6 +655,27 @@ def update_users():
                 try:
                     cloudinary.api.delete_resources_by_prefix(f"solutions/{old_username}/")
                     print(f"Usunięto zdjęcia użytkownika {old_username} z Cloudinary")
+
+                    # Usuń rozwiązania z Firestore
+                    db.collection('solutions').document(old_username).delete()
+                    if old_username in zadania_rozwiazania:
+                        del zadania_rozwiazania[old_username]
+
+                    # Usuń lokalizację
+                    db.collection('locations').document(old_username).delete()
+                    if old_username in players_location:
+                        del players_location[old_username]
+
+                    # Usuń czasy zadań — przefiltruj listę
+                    global task_times
+                    task_times = [r for r in task_times if r.get("username") != old_username]
+                    fs_set_doc('task_times', 'all', {'items': task_times})
+
+                    # Usuń dane sesji jeśli gracz był w trakcie zadania
+                    if old_username in zadania_czasy:
+                        del zadania_czasy[old_username]
+
+                    print(f"Usunięto wszystkie dane użytkownika {old_username}")
                 except Exception as e:
                     print(f"Błąd usuwania zdjęć {old_username}: {e}")
 
