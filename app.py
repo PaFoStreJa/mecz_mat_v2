@@ -9,6 +9,7 @@ from firebase_admin import credentials, firestore
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+import math
 
 # Konfiguracja ścieżek i folderów
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Katalog gdzie jest app.py
@@ -429,6 +430,21 @@ def upload_solution(task_id):
             end = datetime.utcnow()
             duration = "0:00:00"
 
+        task_data = CURRENT_TASKS.get(task_id, {})
+        max_minutes = None
+        if isinstance(task_data, dict):
+            try:
+                max_minutes = float(task_data.get("max_minutes") or 0) or None
+            except (ValueError, TypeError):
+                max_minutes = None
+
+        duration_seconds = (end - start).total_seconds()
+        if max_minutes and duration_seconds > (max_minutes * 60 + 5):
+            overtime_minutes = math.ceil((duration_seconds - max_minutes * 60) / 60)
+            multiplier = round(1 - overtime_minutes * 0.2, 2)
+        else:
+            multiplier = 1.0
+
         # Dodaj rekord do task_times
         record = {
             "username": username,
@@ -440,6 +456,8 @@ def upload_solution(task_id):
             "original_filename": original_filename,
             "image_url": image_url,
             "file_size": upload_result.get("bytes", 0)
+            "multiplier": multiplier,
+            "max_minutes": max_minutes,
         }
         task_times.append(record)
 
@@ -470,6 +488,8 @@ def get_task_times():
             task_id = r.get("task_id", "")
             task_data = CURRENT_TASKS.get(task_id)
             r["task_name"] = get_task_name(task_data, task_id) if task_data else task_id[:8]
+            r["multiplier"] = record.get("multiplier", 1.0)
+            r["max_minutes"] = record.get("max_minutes", None)
             enriched.append(r)
         return jsonify(enriched)
     except Exception as e:
@@ -738,6 +758,84 @@ def update_tasks():
     except Exception as e:
         print(f"Błąd aktualizacji zadań: {e}")
         return jsonify({"error": f"Wewnętrzny błąd serwera: {str(e)}"}), 500
+
+@app.route("/api/ranking")
+def get_ranking():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        tasks = CURRENT_TASKS
+        players = {u: v for u, v in CURRENT_USERS.items() if v.get("role") == "player"}
+
+        # Buduj strukturę: task_id -> {player -> {multiplier, points, result}}
+        ranking = {}
+        for task_id, task_data in tasks.items():
+            ranking[task_id] = {
+                "task_name": get_task_name(task_data, task_id),
+                "players": {}
+            }
+            for username in players:
+                ranking[task_id]["players"][username] = {
+                    "multiplier": 1.0,
+                    "points": None,  # None = nauczyciel jeszcze nie wpisał
+                    "result": None,
+                    "completed": False,
+                }
+
+        # Uzupełnij mnożniki z task_times
+        for record in task_times:
+            tid = record.get("task_id")
+            uname = record.get("username")
+            if tid in ranking and uname in ranking[tid]["players"]:
+                ranking[tid]["players"][uname]["multiplier"] = record.get("multiplier", 1.0)
+                ranking[tid]["players"][uname]["completed"] = True
+
+        # Uzupełnij punkty zapisane w Firestore
+        saved_points = fs_get_doc("ranking_points", "all", {})
+        for task_id, task_data in saved_points.items():
+            if task_id in ranking:
+                for username, pdata in task_data.items():
+                    if username in ranking[task_id]["players"]:
+                        points = pdata.get("points")
+                        multiplier = ranking[task_id]["players"][username]["multiplier"]
+                        ranking[task_id]["players"][username]["points"] = points
+                        if points is not None:
+                            ranking[task_id]["players"][username]["result"] = round(points / multiplier, 2)
+
+        # Oblicz sumy dla rankingu końcowego
+        totals = {u: 0.0 for u in players}
+        for task_id, tdata in ranking.items():
+            for username, pdata in tdata["players"].items():
+                if pdata["result"] is not None:
+                    totals[username] += pdata["result"]
+
+        return jsonify({
+            "tasks": ranking,
+            "player_names": list(players.keys()),
+            "totals": totals,
+        })
+
+    except Exception as e:
+        print(f"Błąd rankingu: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/ranking", methods=["POST"])
+def save_ranking_points():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Brak danych"}), 400
+
+        # data = { task_id: { username: { points: X } } }
+        fs_set_doc("ranking_points", "all", data)
+        return jsonify({"status": "success"})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
