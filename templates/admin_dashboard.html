@@ -518,6 +518,9 @@
       <div class="menu-item" onclick="showSettingsPanel()">
         <span>⚙️</span> Settings
       </div>
+      <div class="menu-item" onclick="showRankingPanel()">
+        <span>🏆</span> Ranking
+      </div>
       <div
         class="menu-item"
         onclick="logout()"
@@ -582,12 +585,13 @@
             <table id="times-table">
               <thead>
                 <tr>
-                  <th>Gracz</th>
-                  <th>Zadanie</th>
-                  <th>Start</th>
-                  <th>Koniec</th>
-                  <th>Czas trwania</th>
-                  <th>Plik</th>
+                    <th>Gracz</th>
+                    <th>Zadanie</th>
+                    <th>Start</th>
+                    <th>Koniec</th>
+                    <th>Czas trwania</th>
+                    <th>Mnożnik</th>
+                    <th>Plik</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -666,6 +670,34 @@
 
         <div id="settings-status"></div>
       </div>
+      <div id="ranking-panel" class="dashboard-container hidden">
+        <h1 class="dashboard-title">Ranking</h1>
+
+        <div class="settings-section">
+            <h3>📋 Punktacja zadań</h3>
+            <div id="ranking-table-container">
+                <div class="loading">Ładowanie rankingu...</div>
+            </div>
+            <button class="save-all-btn" onclick="saveRankingPoints()" style="margin-top: 20px;">
+                💾 Zapisz punkty
+            </button>
+            <div id="ranking-save-status"></div>
+        </div>
+
+        <div class="settings-section">
+            <h3>🥇 Wyniki końcowe</h3>
+            <table id="totals-table">
+                <thead>
+                    <tr>
+                        <th>Miejsce</th>
+                        <th>Gracz</th>
+                        <th>Łączny wynik</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+      </div>
     </div>
 
     <!-- Modal do powiększania zdjęć -->
@@ -710,6 +742,7 @@
       function showMainPanel() {
         document.getElementById("main-panel").classList.remove("hidden");
         document.getElementById("settings-panel").classList.add("hidden");
+        document.getElementById("ranking-panel").classList.add("hidden");
         updateActiveMenuItem(0);
 
         if (window.innerWidth <= 768) toggleMenu();
@@ -728,6 +761,7 @@
       function showSettingsPanel() {
         document.getElementById("main-panel").classList.add("hidden");
         document.getElementById("settings-panel").classList.remove("hidden");
+        document.getElementById("ranking-panel").classList.add("hidden");
         updateActiveMenuItem(1);
 
         if (window.innerWidth <= 768) toggleMenu();
@@ -963,6 +997,9 @@
               <td>${startDate}</td>
               <td>${endDate}</td>
               <td>${row.duration || "-"}</td>
+              <td style="color: ${row.multiplier > 1 ? '#ffa726' : '#00c853'}">
+                  ×${row.multiplier || 1.0}
+              </td>
               <td title="${filename}">${
               filename.length > 20
                 ? filename.substring(0, 20) + "..."
@@ -1198,6 +1235,16 @@
                     <textarea class="form-input form-textarea"
                                 oninput="updateTaskField('${taskId}', 'tresc', this.value)"
                                 placeholder="Treść zadania">${tresc}</textarea>
+                    <div style="margin-top: 10px;">
+                        <label style="color: #aaa; font-size: 13px; display: block; margin-bottom: 4px;">
+                            Maks. czas na zadanie (minuty) — brak = mnożnik zawsze 1
+                        </label>
+                        <input type="number" min="0" step="0.5" class="form-input"
+                            value="${isNewFormat ? (taskData.max_minutes || '') : ''}"
+                            oninput="updateTaskField('${taskId}', 'max_minutes', this.value ? parseFloat(this.value) : null)"
+                            placeholder="np. 5"
+                            style="width: 100px;">
+</div>
                     <div>
                         <div style="margin-bottom: 10px;">
                             <small style="color: #888; word-break: break-all;">ID: ${taskId}</small>
@@ -1429,6 +1476,189 @@
           }
         }
       });
+        // === RANKING ===
+let rankingData = null;
+let rankingPoints = {}; // { task_id: { username: points } }
+
+function showRankingPanel() {
+    document.getElementById("main-panel").classList.add("hidden");
+    document.getElementById("settings-panel").classList.add("hidden");
+    document.getElementById("ranking-panel").classList.remove("hidden");
+    updateActiveMenuItem(2);
+    if (window.innerWidth <= 768) toggleMenu();
+    loadRanking();
+}
+
+async function loadRanking() {
+    try {
+        const res = await fetch("/api/ranking");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        rankingData = await res.json();
+        renderRankingTable();
+        renderTotals();
+    } catch (e) {
+        document.getElementById("ranking-table-container").innerHTML =
+            `<div class="error-message">❌ Błąd ładowania rankingu: ${e.message}</div>`;
+    }
+}
+
+function renderRankingTable() {
+    const container = document.getElementById("ranking-table-container");
+    const players = rankingData.player_names;
+    const tasks = rankingData.tasks;
+
+    // Inicjalizuj lokalny stan punktów
+    for (const [taskId, tdata] of Object.entries(tasks)) {
+        if (!rankingPoints[taskId]) rankingPoints[taskId] = {};
+        for (const username of players) {
+            const saved = tdata.players[username]?.points;
+            if (rankingPoints[taskId][username] === undefined && saved !== null && saved !== undefined) {
+                rankingPoints[taskId][username] = saved;
+            }
+        }
+    }
+
+    // Nagłówki graczy (po 3 kolumny na gracza)
+    let playerHeaders = "";
+    for (const username of players) {
+        playerHeaders += `<th colspan="3" style="background:#4f78ff22; border-bottom: 2px solid #4f78ff;">${username}</th>`;
+    }
+
+    let subHeaders = "";
+    for (const username of players) {
+        subHeaders += `
+            <th style="font-size:11px; color:#aaa;">Punkty</th>
+            <th style="font-size:11px; color:#aaa;">Mnożnik</th>
+            <th style="font-size:11px; color:#aaa;">Wynik</th>
+        `;
+    }
+
+    // Wiersze zadań
+    let rows = "";
+    for (const [taskId, tdata] of Object.entries(tasks)) {
+        let cells = "";
+        for (const username of players) {
+            const pdata = tdata.players[username];
+            const multiplier = pdata.multiplier || 1.0;
+            const completed = pdata.completed;
+            const savedPoints = pdata.points;
+            const result = pdata.result;
+
+            const pointsVal = rankingPoints[taskId]?.[username] ?? (savedPoints ?? "");
+            const resultDisplay = result !== null && result !== undefined
+                ? `<span style="color:#00c853; font-weight:500;">${result}</span>`
+                : `<span style="color:#555;">—</span>`;
+
+            const multiplierColor = multiplier > 1 ? "#ffa726" : "#00c853";
+
+            cells += `
+                <td>
+                    ${completed
+                        ? `<input type="number" min="0" step="0.5"
+                                style="width:70px; padding:4px 6px; border-radius:6px;
+                                       background:#1e1e2f; color:#fff; border:none; font-size:13px;"
+                                value="${pointsVal}"
+                                oninput="updatePoints('${taskId}', '${username}', this.value)">`
+                        : `<span style="color:#555; font-size:12px;">nie wykonano</span>`
+                    }
+                </td>
+                <td style="color:${multiplierColor};">×${multiplier.toFixed(2)}</td>
+                <td>${resultDisplay}</td>
+            `;
+        }
+
+        rows += `
+            <tr>
+                <td style="text-align:left; font-weight:500; padding-left:12px;">
+                    ${tdata.task_name}
+                </td>
+                ${cells}
+            </tr>
+        `;
+    }
+
+    container.innerHTML = `
+        <div style="overflow-x: auto;">
+            <table style="min-width: 600px;">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="text-align:left; padding-left:12px;">Zadanie</th>
+                        ${playerHeaders}
+                    </tr>
+                    <tr>${subHeaders}</tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function updatePoints(taskId, username, value) {
+    if (!rankingPoints[taskId]) rankingPoints[taskId] = {};
+    const parsed = parseFloat(value);
+    rankingPoints[taskId][username] = isNaN(parsed) ? null : parsed;
+
+    // Przelicz wynik na żywo i odśwież totals
+    if (rankingData?.tasks?.[taskId]?.players?.[username]) {
+        const multiplier = rankingData.tasks[taskId].players[username].multiplier || 1.0;
+        const result = isNaN(parsed) ? null : round2(parsed / multiplier);
+        rankingData.tasks[taskId].players[username].points = isNaN(parsed) ? null : parsed;
+        rankingData.tasks[taskId].players[username].result = result;
+    }
+    renderTotals();
+}
+
+function round2(val) {
+    return Math.round(val * 100) / 100;
+}
+
+function renderTotals() {
+    if (!rankingData) return;
+    const players = rankingData.player_names;
+    const totals = {};
+
+    for (const username of players) {
+        totals[username] = 0;
+        for (const [taskId, tdata] of Object.entries(rankingData.tasks)) {
+            const points = rankingPoints[taskId]?.[username];
+            const multiplier = tdata.players[username]?.multiplier || 1.0;
+            if (points !== null && points !== undefined && !isNaN(points)) {
+                totals[username] += round2(points / multiplier);
+            }
+        }
+    }
+
+    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    const tbody = document.querySelector("#totals-table tbody");
+    tbody.innerHTML = "";
+
+    sorted.forEach(([username, total], i) => {
+        const medals = ["🥇", "🥈", "🥉"];
+        const place = medals[i] || `${i + 1}.`;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td style="font-size:1.2rem;">${place}</td>
+            <td style="font-weight:500;">${username}</td>
+            <td style="color:#00c853; font-weight:bold; font-size:1.1rem;">${round2(total)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function saveRankingPoints() {
+    try {
+        showLoading("ranking-save-status", "Zapisywanie...");
+        const res = await fetch("/api/ranking", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(rankingPoints),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showSuccess("ranking-save-status", "Punkty zapisane!");
+    } catch (e) {
+        showError("ranking-save-status", `Błąd zapisu: ${e.message}`);
+    }
+}
     </script>
   </body>
 </html>
