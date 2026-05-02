@@ -344,9 +344,9 @@ def pokaz_zadanie(task_id):
         zadania_czasy[username][task_id] = {"start": datetime.utcnow(), "end": None}
 
     start_time = zadania_czasy[username][task_id]["start"]
-    start_time_iso = start_time.isoformat()
+    start_time_iso = start_time.isoformat() + "Z"
     end_time = zadania_czasy[username][task_id]["end"]
-    end_time_iso = end_time.isoformat() if end_time else None
+    end_time_iso = (end_time.isoformat() + "Z") if end_time else None
 
     tresc = get_task_content(CURRENT_TASKS[task_id])
     return render_template("zadanie.html", 
