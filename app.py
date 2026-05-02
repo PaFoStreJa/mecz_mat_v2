@@ -455,7 +455,7 @@ def upload_solution(task_id):
             "filename": filename,
             "original_filename": original_filename,
             "image_url": image_url,
-            "file_size": upload_result.get("bytes", 0)
+            "file_size": upload_result.get("bytes", 0),
             "multiplier": multiplier,
             "max_minutes": max_minutes,
         }
