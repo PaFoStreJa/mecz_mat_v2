@@ -793,10 +793,15 @@ def get_ranking():
         # Uzupełnij punkty zapisane w Firestore
         saved_points = fs_get_doc("ranking_points", "all", {})
         for task_id, task_data in saved_points.items():
-            if task_id in ranking:
+            if task_id in ranking and isinstance(task_data, dict):
                 for username, pdata in task_data.items():
                     if username in ranking[task_id]["players"]:
-                        points = pdata.get("points")
+                        if isinstance(pdata, dict):
+                            points = pdata.get("points")
+                        elif isinstance(pdata, (int, float)):
+                            points = pdata
+                        else:
+                            points = None
                         multiplier = ranking[task_id]["players"][username]["multiplier"]
                         ranking[task_id]["players"][username]["points"] = points
                         if points is not None:
