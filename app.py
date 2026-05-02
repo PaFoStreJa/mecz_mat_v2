@@ -441,7 +441,7 @@ def upload_solution(task_id):
         duration_seconds = (end - start).total_seconds()
         if max_minutes and duration_seconds > (max_minutes * 60 + 5):
             overtime_minutes = math.ceil((duration_seconds - max_minutes * 60) / 60)
-            multiplier = round(1 - overtime_minutes * 0.2, 2)
+            multiplier = round(1 + overtime_minutes * 0.2, 2)
         else:
             multiplier = 1.0
 
