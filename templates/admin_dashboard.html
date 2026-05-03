@@ -590,7 +590,7 @@
                     <th>Start</th>
                     <th>Koniec</th>
                     <th>Czas trwania</th>
-                    <th>Mnożnik</th>
+                    <th>Dzielnik</th>
                     <th>Plik</th>
                 </tr>
               </thead>
@@ -1237,7 +1237,7 @@
                                 placeholder="Treść zadania">${tresc}</textarea>
                     <div style="margin-top: 10px;">
                         <label style="color: #aaa; font-size: 13px; display: block; margin-bottom: 4px;">
-                            Maks. czas na zadanie (minuty) — brak = mnożnik zawsze 1
+                            Maks. czas na zadanie (minuty) \n jeżeli brak to dzielnik zawsze 1
                         </label>
                         <input type="number" min="0" step="0.5" class="form-input"
                             value="${isNewFormat ? (taskData.max_minutes || '') : ''}"
@@ -1528,7 +1528,7 @@ function renderRankingTable() {
     for (const username of players) {
         subHeaders += `
             <th style="font-size:11px; color:#aaa;">Punkty</th>
-            <th style="font-size:11px; color:#aaa;">Mnożnik</th>
+            <th style="font-size:11px; color:#aaa;">Dzielnik</th>
             <th style="font-size:11px; color:#aaa;">Wynik</th>
         `;
     }
