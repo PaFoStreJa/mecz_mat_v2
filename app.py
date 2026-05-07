@@ -543,6 +543,7 @@ def get_task_times():
 
 @app.route("/api/reset_solution", methods=["POST"])
 def reset_solution():
+    global task_times
     if session.get("role") != "admin":
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -579,7 +580,6 @@ def reset_solution():
                 print(f"Błąd usuwania zdjęcia z Cloudinary: {e}")
 
         # Usuń rekord z task_times
-        global task_times
         task_times = [
             r for r in task_times
             if not (r.get("username") == username and r.get("task_id") == task_id)
