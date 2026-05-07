@@ -984,13 +984,6 @@
 
           data.forEach((row) => {
             const tr = document.createElement("tr");
-            const startDate = row.start
-              ? new Date(row.start).toLocaleString("pl-PL")
-              : "-";
-            const endDate = row.end
-              ? new Date(row.end).toLocaleString("pl-PL")
-              : "-";
-            const filename = row.filename || "-";
 
             const isCompleted = row.end !== null && row.end !== undefined;
             const dash = '<span style="color:#555;">—————</span>';
@@ -1035,8 +1028,6 @@
                         🔄 Reset
                     </button>
                 </td>
-            `;
-            }</td>
             `;
             tbody.appendChild(tr);
           });
@@ -1291,9 +1282,9 @@
                     </div>
                 </div>
              `;
-        container.appendChild(taskDiv);
-      });
-    }
+    container.appendChild(taskDiv);
+});
+}
 
       // Aktualizuje pole użytkownika
       function updateUserField(oldUsername, field, newValue) {
