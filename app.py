@@ -342,7 +342,29 @@ def pokaz_zadanie(task_id):
         zadania_czasy[username] = {}
 
     if task_id not in zadania_czasy[username]:
-        zadania_czasy[username][task_id] = {"start": datetime.utcnow(), "end": None}
+        start_time = datetime.utcnow()
+        zadania_czasy[username][task_id] = {"start": start_time, "end": None}
+
+        # Zapisz "rozpoczęte" zadanie do task_times od razu
+        # Sprawdź czy już nie ma rekordu (np. po odświeżeniu strony)
+        already_exists = any(
+            r.get("username") == username and r.get("task_id") == task_id
+            for r in task_times
+        )
+        if not already_exists:
+            record = {
+                "username": username,
+                "task_id": task_id,
+                "start": start_time.isoformat(),
+                "end": None,
+                "duration": None,
+                "filename": None,
+                "image_url": None,
+                "multiplier": 1.0,
+                "max_minutes": None,
+            }
+            task_times.append(record)
+            fs_set_doc('task_times', 'all', {'items': task_times})
 
     start_time = zadania_czasy[username][task_id]["start"]
     start_time_iso = start_time.isoformat() + "Z"
@@ -446,6 +468,12 @@ def upload_solution(task_id):
             multiplier = 1.0
 
         # Dodaj rekord do task_times
+        existing_idx = next(
+            (i for i, r in enumerate(task_times)
+             if r.get("username") == username and r.get("task_id") == task_id),
+            None
+        )
+
         record = {
             "username": username,
             "task_id": task_id,
@@ -459,7 +487,11 @@ def upload_solution(task_id):
             "multiplier": multiplier,
             "max_minutes": max_minutes,
         }
-        task_times.append(record)
+
+        if existing_idx is not None:
+            task_times[existing_idx] = record
+        else:
+            task_times.append(record)
 
         # Zapisz dane do plików
         # Konwertuj set na list dla JSON
@@ -495,6 +527,45 @@ def get_task_times():
     except Exception as e:
         print(f"Błąd podczas pobierania czasów: {e}")
         return jsonify({"error": "Błąd pobierania czasów"}), 500
+
+
+@app.route("/api/reset_solution", methods=["POST"])
+def reset_solution():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    username = data.get("username")
+    task_id = data.get("task_id")
+
+    if not username or not task_id:
+        return jsonify({"error": "Brak danych"}), 400
+
+    try:
+        # Usuń z solutions
+        if username in zadania_rozwiazania:
+            if isinstance(zadania_rozwiazania[username], list):
+                zadania_rozwiazania[username] = set(zadania_rozwiazania[username])
+            zadania_rozwiazania[username].discard(task_id)
+            fs_set_doc('solutions', username, {
+                'solved': list(zadania_rozwiazania[username])
+            })
+
+        # Usuń rekord z task_times
+        global task_times
+        task_times = [
+            r for r in task_times
+            if not (r.get("username") == username and r.get("task_id") == task_id)
+        ]
+        fs_set_doc('task_times', 'all', {'items': task_times})
+
+        # Wyczyść cache sesji
+        if username in zadania_czasy and task_id in zadania_czasy.get(username, {}):
+            del zadania_czasy[username][task_id]
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/get_gallery")
 def get_gallery():
