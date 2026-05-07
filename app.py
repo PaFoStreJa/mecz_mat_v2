@@ -784,6 +784,14 @@ def update_users():
                     if old_username in players_location:
                         del players_location[old_username]
 
+                    # Usuń punkty rankingu
+                    ranking_points = fs_get_doc("ranking_points", "all", {})
+                    for task_id in ranking_points:
+                        if old_username in ranking_points[task_id]:
+                            del ranking_points[task_id][old_username]
+                    fs_set_doc("ranking_points", "all", ranking_points)
+                    print(f"Usunięto punkty rankingu użytkownika {old_username}")
+
                     # Usuń czasy zadań — przefiltruj listę
                     global task_times
                     task_times = [r for r in task_times if r.get("username") != old_username]
