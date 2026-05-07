@@ -562,6 +562,7 @@ def reset_solution():
             fs_set_doc('solutions', username, {
                 'solved': list(zadania_rozwiazania[username])
             })
+
         # Znajdź i usuń zdjęcie z Cloudinary jeśli istnieje
         existing_record = next(
             (r for r in task_times
@@ -576,6 +577,7 @@ def reset_solution():
                 print(f"Usunięto zdjęcie z Cloudinary: {public_id}")
             except Exception as e:
                 print(f"Błąd usuwania zdjęcia z Cloudinary: {e}")
+
         # Usuń rekord z task_times
         global task_times
         task_times = [
