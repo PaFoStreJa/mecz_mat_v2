@@ -592,6 +592,7 @@
                     <th>Czas trwania</th>
                     <th>Dzielnik</th>
                     <th>Plik</th>
+                    <th>Reset</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -991,19 +992,50 @@
               : "-";
             const filename = row.filename || "-";
 
+            const isCompleted = row.end !== null && row.end !== undefined;
+            const dash = '<span style="color:#555;">—————</span>';
+
+            const startDate = row.start
+                ? new Date(row.start).toLocaleString("pl-PL")
+                : dash;
+            const endDate = isCompleted
+                ? new Date(row.end).toLocaleString("pl-PL")
+                : dash;
+            const duration = isCompleted ? (row.duration || dash) : dash;
+            const multiplier = isCompleted
+                ? `<span style="color:${row.multiplier > 1 ? '#ffa726' : '#00c853'}">×${row.multiplier}</span>`
+                : dash;
+            const filename = isCompleted
+                ? (row.filename
+                    ? (row.filename.length > 20
+                        ? row.filename.substring(0, 20) + "..."
+                        : row.filename)
+                    : dash)
+                : dash;
+
+            const statusBadge = isCompleted
+                ? '<span style="color:#00c853; font-size:11px;">✅ ukończone</span>'
+                : '<span style="color:#ffa726; font-size:11px;">⏳ w trakcie</span>';
+
             tr.innerHTML = `
-              <td>${row.username}</td>
-              <td title="${row.task_id}">${row.task_name || row.task_id.substring(0, 8)}</td>
-              <td>${startDate}</td>
-              <td>${endDate}</td>
-              <td>${row.duration || "-"}</td>
-              <td style="color: ${row.multiplier > 1 ? '#ffa726' : '#00c853'}">
-                  ×${row.multiplier || 1.0}
-              </td>
-              <td title="${filename}">${
-              filename.length > 20
-                ? filename.substring(0, 20) + "..."
-                : filename
+                <td>${row.username}<br>${statusBadge}</td>
+                <td title="${row.task_id}">${row.task_name || row.task_id.substring(0, 8)}</td>
+                <td>${startDate}</td>
+                <td>${endDate}</td>
+                <td>${duration}</td>
+                <td>${multiplier}</td>
+                <td title="${row.filename || ''}">${filename}</td>
+                <td>
+                    <button onclick="resetSolution('${row.username}', '${row.task_id}')"
+                            style="background:#ff4757; color:white; border:none;
+                                padding:5px 10px; border-radius:6px; cursor:pointer;
+                                font-size:12px; transition: background 0.2s;"
+                            onmouseover="this.style.background='#c0392b'"
+                            onmouseout="this.style.background='#ff4757'">
+                        🔄 Reset
+                    </button>
+                </td>
+            `;
             }</td>
             `;
             tbody.appendChild(tr);
@@ -1394,7 +1426,25 @@
           renderTasks();
         }
       }
+      async function resetSolution(username, taskId) {
+        if (!confirm(`Czy na pewno chcesz zresetować zadanie gracza "${username}"?\n\nGracz będzie mógł wykonać je od nowa.`)) return;
 
+        try {
+            const res = await fetch("/api/reset_solution", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: username, task_id: taskId })
+            });
+            const data = await res.json();
+            if (data.status === "success") {
+                fetchTimes();
+            } else {
+                alert("❌ Błąd: " + data.error);
+            }
+        } catch (e) {
+            alert("❌ Błąd połączenia: " + e.message);
+        }
+      }
       // Zapisuje wszystkie zmiany w ustawieniach
       async function saveAllSettings() {
         const saveBtn = document.querySelector(".save-all-btn");
