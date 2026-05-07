@@ -448,9 +448,21 @@ def upload_solution(task_id):
             zadania_czasy[username][task_id]["end"] = end
             duration = str(end - start)
         else:
-            start = datetime.utcnow()
+            # Sesja mogła zostać wyczyszczona przez reset admina w trakcie zadania
+            existing_record = next(
+                (r for r in task_times
+                 if r.get("username") == username and r.get("task_id") == task_id),
+                None
+            )
+            if existing_record and existing_record.get("start"):
+                try:
+                    start = datetime.fromisoformat(existing_record["start"])
+                except ValueError:
+                    start = datetime.utcnow()
+            else:
+                start = datetime.utcnow()
             end = datetime.utcnow()
-            duration = "0:00:00"
+            duration = str(end - start)
 
         task_data = CURRENT_TASKS.get(task_id, {})
         max_minutes = None
