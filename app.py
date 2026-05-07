@@ -562,7 +562,20 @@ def reset_solution():
             fs_set_doc('solutions', username, {
                 'solved': list(zadania_rozwiazania[username])
             })
-
+        # Znajdź i usuń zdjęcie z Cloudinary jeśli istnieje
+        existing_record = next(
+            (r for r in task_times
+             if r.get("username") == username and r.get("task_id") == task_id),
+            None
+        )
+        if existing_record and existing_record.get("filename"):
+            filename = existing_record["filename"]
+            public_id = f"solutions/{username}/{filename}"
+            try:
+                cloudinary.uploader.destroy(public_id, resource_type="image")
+                print(f"Usunięto zdjęcie z Cloudinary: {public_id}")
+            except Exception as e:
+                print(f"Błąd usuwania zdjęcia z Cloudinary: {e}")
         # Usuń rekord z task_times
         global task_times
         task_times = [
