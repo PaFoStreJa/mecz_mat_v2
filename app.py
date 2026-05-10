@@ -594,6 +594,18 @@ def reset_solution():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/task_status/<task_id>")
+def task_status(task_id):
+    if "username" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    username = session["username"]
+    record = next(
+        (r for r in task_times
+         if r.get("username") == username and r.get("task_id") == task_id),
+        None
+    )
+    return jsonify({"active": record is not None})
+
 @app.route("/get_gallery")
 def get_gallery():
     """Endpoint do pobierania listy zdjęć w galerii"""
