@@ -189,6 +189,20 @@
 
       setInterval(updateTimer, 1000);
       updateTimer();
+        // Polling — wykryj reset przez admina
+      const pollingInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/task_status/{{ task_id }}`);
+            const data = await res.json();
+            if (!data.active) {
+                clearInterval(pollingInterval);
+                alert("Zadanie zostało zresetowane przez administratora.");
+                window.location.href = "/player";
+            }
+        } catch (e) {
+            console.error("Błąd pollingu:", e);
+        }
+      }, 5000);
     </script>
   </body>
 </html>
