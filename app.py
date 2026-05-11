@@ -10,6 +10,7 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 import math
+from password_utils import hash_password, verify_password, is_hashed
 
 # Konfiguracja ścieżek i folderów
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Katalog gdzie jest app.py
@@ -208,7 +209,7 @@ def login():
             return render_template("login.html", error="Proszę podać nazwę użytkownika i hasło")
 
         user = CURRENT_USERS.get(username)
-        if user and user["password"] == password:
+        if user and verify_password(password, user["password"]):
             session["username"] = username
             session["role"] = user["role"]
             return redirect(url_for("dashboard"))
@@ -772,7 +773,12 @@ def update_users():
         # Aktualizuj globalne dane
         global CURRENT_USERS
         CURRENT_USERS = data.copy()
-        
+
+        for username, udata in CURRENT_USERS.items():
+            plain = udata.get("password", "")
+            if plain and not is_hashed(plain):
+                CURRENT_USERS[username]["password"] = hash_password(plain)
+
         # Zapisz do pliku
         for username, udata in CURRENT_USERS.items():
             fs_set_doc('users', username, udata)
