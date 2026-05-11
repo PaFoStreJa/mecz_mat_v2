@@ -197,8 +197,6 @@ players_location = load_locations()
 task_times = load_task_times()
 zadania_rozwiazania = load_solutions()
 
-zadania_czasy = {}  # Tymczasowe dane sesji
-
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -326,7 +324,7 @@ def pokaz_zadanie(task_id):
     username = session.get("username")
     if not username:
         return redirect(url_for("login"))
-    
+
     if task_id not in CURRENT_TASKS:
         return redirect(url_for("player_dashboard"))
 
@@ -334,20 +332,20 @@ def pokaz_zadanie(task_id):
     user_solutions = zadania_rozwiazania.get(username, set())
     if isinstance(user_solutions, list):
         user_solutions = set(user_solutions)
-    
+
     if task_id in user_solutions:
         return redirect(url_for("player_dashboard"))
 
-    # Inicjalizuj czas rozpoczęcia
-    if username not in zadania_czasy:
-        zadania_czasy[username] = {}
+    # Pobierz aktywne zadania gracza z Firestore
+    active = fs_get_doc('active_tasks', username) or {}
 
-    if task_id not in zadania_czasy[username]:
+    if task_id not in active:
+        # Pierwsze wejście — zapisz czas startu
         start_time = datetime.utcnow()
-        zadania_czasy[username][task_id] = {"start": start_time, "end": None}
+        active[task_id] = {"start": start_time.isoformat(), "end": None}
+        fs_set_doc('active_tasks', username, active)
 
-        # Zapisz "rozpoczęte" zadanie do task_times od razu
-        # Sprawdź czy już nie ma rekordu (np. po odświeżeniu strony)
+        # Zapisz rekord do task_times jeśli jeszcze nie istnieje
         already_exists = any(
             r.get("username") == username and r.get("task_id") == task_id
             for r in task_times
@@ -366,30 +364,34 @@ def pokaz_zadanie(task_id):
             }
             task_times.append(record)
             fs_set_doc('task_times', 'all', {'items': task_times})
+    else:
+        # Kolejne wejście — odczytaj istniejący czas startu
+        start_time = datetime.fromisoformat(active[task_id]["start"])
 
-    start_time = zadania_czasy[username][task_id]["start"]
     start_time_iso = start_time.isoformat() + "Z"
-    end_time = zadania_czasy[username][task_id]["end"]
-    end_time_iso = (end_time.isoformat() + "Z") if end_time else None
+    end_raw = active[task_id].get("end")
+    end_time_iso = (end_raw + "Z") if end_raw else None
 
     tresc = get_task_content(CURRENT_TASKS[task_id])
-    return render_template("zadanie.html", 
-                         task_id=task_id, 
-                         tresc=tresc, 
-                         start_time_iso=start_time_iso, 
-                         end_time_iso=end_time_iso, 
-                         username=username)
+    return render_template("zadanie.html",
+                           task_id=task_id,
+                           tresc=tresc,
+                           start_time_iso=start_time_iso,
+                           end_time_iso=end_time_iso,
+                           username=username)
 
 @app.route("/zakoncz_zadanie/<task_id>", methods=["POST"])
 def zakoncz_zadanie(task_id):
     username = session.get("username")
     if not username:
         return jsonify({"error": "Unauthorized"}), 401
-        
-    if username not in zadania_czasy or task_id not in zadania_czasy[username]:
-        return jsonify({"error": "Brak danych o zadaniu"}), 400
 
-    zadania_czasy[username][task_id]["end"] = datetime.utcnow()
+    active = fs_get_doc('active_tasks', username) or {}
+    if task_id not in active:
+        return jsonify({"error": "Brak danych o zadaniu"}), 400
+    active[task_id]["end"] = datetime.utcnow().isoformat()
+    fs_set_doc('active_tasks', username, active)
+
     return jsonify({"status": "zakończono", "task_id": task_id})
 
 @app.route("/upload_solution/<task_id>", methods=["POST"])
@@ -443,10 +445,12 @@ def upload_solution(task_id):
         zadania_rozwiazania[username].add(task_id)
 
         # Oblicz czas wykonania
-        if username in zadania_czasy and task_id in zadania_czasy[username]:
-            start = zadania_czasy[username][task_id]["start"]
+        active = fs_get_doc('active_tasks', username) or {}
+        if username in active:
+            start = datetime.fromisoformat(active[task_id]["start"])
             end = datetime.utcnow()
-            zadania_czasy[username][task_id]["end"] = end
+            active[task_id]["end"] = end.isoformat()
+            fs_set_doc('active_tasks', username, active)
             duration = str(end - start)
         else:
             # Sesja mogła zostać wyczyszczona przez reset admina w trakcie zadania
@@ -565,6 +569,11 @@ def reset_solution():
                 'solved': list(zadania_rozwiazania[username])
             })
 
+        active = fs_get_doc('active_tasks', username) or {}
+        if task_id in active:
+            del active[task_id]
+            fs_set_doc('active_tasks', username, active)
+
         # Znajdź i usuń zdjęcie z Cloudinary jeśli istnieje
         existing_record = next(
             (r for r in task_times
@@ -586,10 +595,6 @@ def reset_solution():
             if not (r.get("username") == username and r.get("task_id") == task_id)
         ]
         fs_set_doc('task_times', 'all', {'items': task_times})
-
-        # Wyczyść cache sesji
-        if username in zadania_czasy and task_id in zadania_czasy.get(username, {}):
-            del zadania_czasy[username][task_id]
 
         return jsonify({"status": "success"})
     except Exception as e:
