@@ -209,7 +209,7 @@ def login():
             return render_template("login.html", error="Proszę podać nazwę użytkownika i hasło")
 
         user = CURRENT_USERS.get(username)
-        if user and user["password"] == password:
+        if user and verify_password(password, user["password"]):
             session["username"] = username
             session["role"] = user["role"]
             return redirect(url_for("dashboard"))
