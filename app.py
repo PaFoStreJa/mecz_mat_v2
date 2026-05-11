@@ -73,6 +73,12 @@ cloudinary.config(
 app = Flask(__name__)
 app.secret_key = os.getenv("SK", "fallback-secret-key-change-me")
 
+is_production = os.getenv("FLASK_ENV") == "production"
+
+app.config['SESSION_COOKIE_SECURE'] = is_production
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # Funkcje pomocnicze do zarządzania danymi
 def fs_get_doc(collection, doc_id, default=None):
     try:
