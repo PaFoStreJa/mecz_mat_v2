@@ -693,6 +693,7 @@
                         <th>Miejsce</th>
                         <th>Gracz</th>
                         <th>Łączny wynik</th>
+                        <th>Łączny czas</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -1657,6 +1658,7 @@ function renderTotals() {
     if (!rankingData) return;
     const players = rankingData.player_names;
     const totals = {};
+    const totalDurations = {};
 
     for (const username of players) {
         totals[username] = 0;
@@ -1666,6 +1668,8 @@ function renderTotals() {
             if (points !== null && points !== undefined && !isNaN(points)) {
                 totals[username] += round2(points / multiplier);
             }
+            const dur = rankingData.task_durations?.[username]?.[taskId];
+            if (dur) totalDurations[username] += dur;
         }
     }
 
@@ -1676,11 +1680,16 @@ function renderTotals() {
     sorted.forEach(([username, total], i) => {
         const medals = ["🥇", "🥈", "🥉"];
         const place = medals[i] || `${i + 1}.`;
+        const seconds = totalDurations[username] || 0;
+        const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+        const ss = String(Math.floor(seconds % 60)).padStart(2, "0");
+        const timeStr = seconds > 0 ? `${mm}:${ss}` : "—";
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td style="font-size:1.2rem;">${place}</td>
             <td style="font-weight:500;">${username}</td>
             <td style="color:#00c853; font-weight:bold; font-size:1.1rem;">${round2(total)}</td>
+            <td style="color:#4f78ff; font-weight:500;">${timeStr}</td>
         `;
         tbody.appendChild(tr);
     });
