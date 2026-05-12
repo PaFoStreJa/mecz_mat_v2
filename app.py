@@ -379,9 +379,11 @@ def pokaz_zadanie(task_id):
     end_time_iso = (end_raw + "Z") if end_raw else None
 
     tresc = get_task_content(CURRENT_TASKS[task_id])
+    image_url = CURRENT_TASKS[task_id].get("image_url", "") if isinstance(CURRENT_TASKS[task_id], dict) else ""
     return render_template("zadanie.html",
                            task_id=task_id,
                            tresc=tresc,
+                           image_url=image_url,
                            start_time_iso=start_time_iso,
                            end_time_iso=end_time_iso,
                            username=username)
@@ -999,6 +1001,61 @@ def save_ranking_points():
         fs_set_doc("ranking_points", "all", data)
         return jsonify({"status": "success"})
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+@app.route("/api/tasks/<task_id>/image", methods=["POST"])
+def upload_task_image(task_id):
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if task_id not in CURRENT_TASKS:
+        return jsonify({"error": "Nieznane zadanie"}), 404
+
+    if 'file' not in request.files:
+        return jsonify({"error": "Brak pliku"}), 400
+
+    file = request.files['file']
+    if file.filename == "" or not allowed_file(file.filename):
+        return jsonify({"error": "Nieprawidłowy plik"}), 400
+
+    try:
+        public_id = f"task_images/{task_id}"
+        result = cloudinary.uploader.upload(
+            file,
+            public_id=public_id,
+            resource_type="image",
+            overwrite=True
+        )
+        image_url = result.get("secure_url")
+
+        # Zapisz URL w danych zadania
+        task_data = CURRENT_TASKS[task_id]
+        if isinstance(task_data, str):
+            task_data = {"nazwa": "", "tresc": task_data}
+        task_data["image_url"] = image_url
+        CURRENT_TASKS[task_id] = task_data
+        fs_set_doc('tasks', task_id, task_data)
+
+        return jsonify({"status": "success", "image_url": image_url})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks/<task_id>/image", methods=["DELETE"])
+def delete_task_image(task_id):
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        cloudinary.uploader.destroy(f"task_images/{task_id}", resource_type="image")
+
+        task_data = CURRENT_TASKS.get(task_id, {})
+        if isinstance(task_data, dict):
+            task_data.pop("image_url", None)
+            CURRENT_TASKS[task_id] = task_data
+            fs_set_doc('tasks', task_id, task_data)
+
+        return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
