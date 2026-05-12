@@ -1662,14 +1662,21 @@ function renderTotals() {
 
     for (const username of players) {
         totals[username] = 0;
+        totalDurations[username] = 0;
+
         for (const [taskId, tdata] of Object.entries(rankingData.tasks)) {
+            // Punkty — niezależnie od czasu
             const points = rankingPoints[taskId]?.[username];
             const multiplier = tdata.players[username]?.multiplier || 1.0;
             if (points !== null && points !== undefined && !isNaN(points)) {
                 totals[username] += round2(points / multiplier);
             }
+
+            // Czas — sumuj NIEZALEŻNIE od punktów
             const dur = rankingData.task_durations?.[username]?.[taskId];
-            if (dur) totalDurations[username] += dur;
+            if (dur !== undefined && dur !== null) {
+                totalDurations[username] += dur;
+            }
         }
     }
 
@@ -1689,7 +1696,7 @@ function renderTotals() {
             <td style="font-size:1.2rem;">${place}</td>
             <td style="font-weight:500;">${username}</td>
             <td style="color:#00c853; font-weight:bold; font-size:1.1rem;">${round2(total)}</td>
-            <td style="color:#4f78ff; font-weight:500;">${timeStr}</td>
+            <td style="color:#4f78ff; font-weight:500; font-size:1.1rem;">${timeStr}</td>
         `;
         tbody.appendChild(tr);
     });
