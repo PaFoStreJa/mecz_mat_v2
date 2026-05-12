@@ -949,10 +949,35 @@ def get_ranking():
                 if pdata["result"] is not None:
                     totals[username] += pdata["result"]
 
+        task_durations = {}
+        for record in task_times:
+            uname = record.get("username")
+            tid = record.get("task_id")
+            duration_str = record.get("duration")
+            if not (uname and tid and duration_str):
+                continue
+            try:
+                # Format "H:MM:SS.ffffff" lub "MM:SS"
+                parts = duration_str.split(":")
+                if len(parts) == 3:
+                    h, m, s = parts
+                    seconds = int(h) * 3600 + int(m) * 60 + float(s)
+                elif len(parts) == 2:
+                    m, s = parts
+                    seconds = int(m) * 60 + float(s)
+                else:
+                    continue
+                if uname not in task_durations:
+                    task_durations[uname] = {}
+                task_durations[uname][tid] = round(seconds)
+            except Exception:
+                pass
+
         return jsonify({
             "tasks": ranking,
             "player_names": list(players.keys()),
             "totals": totals,
+            "task_durations": task_durations,
         })
 
     except Exception as e:
