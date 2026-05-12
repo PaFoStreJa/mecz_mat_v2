@@ -144,6 +144,15 @@
       <div class="czas-trwania">Czas trwania: <span id="czas">00:00</span></div>
       <pre>{{ tresc }}</pre>
 
+        {% if image_url %}
+        <div style="margin-bottom: 1.5rem;">
+        <img src="{{ image_url }}"
+            style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: pointer;"
+            onclick="this.requestFullscreen ? this.requestFullscreen() : this.webkitRequestFullscreen()">
+        <p style="color: #888; font-size: 0.85rem; margin-top: 6px;">Kliknij w zdjęcie aby powiększyć</p>
+        </div>
+        {% endif %}
+
       <form id="end-form">
         <button type="button" id="start-camera-btn">
           Zakończ zadanie i zrób zdjęcie
