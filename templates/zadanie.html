@@ -45,6 +45,64 @@
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4);
         margin-bottom: 2rem;
       }
+      #camera-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#camera-overlay video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-controls {
+  position: absolute;
+  bottom: 30px;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  z-index: 10000;
+}
+
+.camera-controls button {
+  padding: 16px 32px;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+#take-photo-btn {
+  background: white;
+  color: #1e1e2f;
+}
+
+#take-photo-btn:hover {
+  background: #e0e0e0;
+  transform: scale(1.05);
+}
+
+#cancel-camera-btn {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  backdrop-filter: blur(4px);
+}
+
+#cancel-camera-btn:hover {
+  background: rgba(255,255,255,0.25);
+  transform: scale(1.05);
+}
       .zadanie-container button {
         padding: 12px 24px;
         font-size: 1rem;
@@ -78,131 +136,140 @@
         </button>
       </form>
 
-      <div id="camera-container" style="display: none; margin-top: 20px">
-        <video id="camera" style="width: 100%; aspect-ratio: 16/9;" autoplay playsinline></video>
-        <br />
-        <button id="take-photo-btn">Zrób zdjęcie</button>
-        <canvas id="canvas" style="display: none"></canvas>
-      </div>
+      <!-- Fullscreen overlay kamery -->
+<div id="camera-overlay" style="display:none;">
+  <video id="camera" autoplay playsinline></video>
+  <div class="camera-controls">
+    <button id="cancel-camera-btn">✕ Cofnij</button>
+    <button id="take-photo-btn">📸 Zrób zdjęcie</button>
+  </div>
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
     </div>
 
     <script>
           const startBtn = document.getElementById("start-camera-btn");
-          const cameraContainer = document.getElementById("camera-container");
-          const video = document.getElementById("camera");
-          const takePhotoBtn = document.getElementById("take-photo-btn");
-          const canvas = document.getElementById("canvas");
-          const ctx = canvas.getContext("2d");
+const cameraOverlay = document.getElementById("camera-overlay");
+const video = document.getElementById("camera");
+const takePhotoBtn = document.getElementById("take-photo-btn");
+const cancelCameraBtn = document.getElementById("cancel-camera-btn");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-          let stream;
+let stream;
 
-          startBtn.addEventListener("click", async () => {
-            startBtn.disabled = true;
-            cameraContainer.style.display = "block";
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  cameraOverlay.style.display = "none";
+  startBtn.disabled = false;
+}
 
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({ video: {
-                                                                    facingMode: { exact: "environment" },  // tylna kamera
-                                                                    aspectRatio: 16 / 9,
-                                                                    width: { ideal: 1920 },
-                                                                    height: { ideal: 1080 }
-                                                                    }
-                                                                });
-              video.srcObject = stream;
-            } catch (err) {
-              alert("Nie udało się uzyskać dostępu do kamery: " + err.message);
-              startBtn.disabled = false;
-            }
-          });
+startBtn.addEventListener("click", async () => {
+  startBtn.disabled = true;
+  cameraOverlay.style.display = "flex";
 
-          takePhotoBtn.addEventListener("click", async () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            stream.getTracks().forEach((track) => track.stop());
-            cameraContainer.style.display = "none";
-
-            canvas.toBlob(async (blob) => {
-              if (!blob) {
-                alert("Błąd podczas tworzenia zdjęcia");
-                startBtn.disabled = false;
-                return;
-              }
-
-              const formData = new FormData();
-              formData.append("file", blob, "{{ username }}_{{ task_id }}.jpg");
-
-              try {
-                const response = await fetch(`/upload_solution/{{ task_id }}`, {
-                  method: "POST",
-                  body: formData,
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.status === "success") {
-                  // Po wysłaniu zdjęcia wywołaj zakończenie zadania
-                  const endResponse = await fetch(
-                    `/zakoncz_zadanie/{{ task_id }}`,
-                    { method: "POST" }
-                  );
-                  const endData = await endResponse.json();
-
-                  if (endResponse.ok && endData.status === "zakończono") {
-                    alert("Zdjęcie wysłane, zadanie zakończone!");
-                    window.location.href = "/player";
-                  } else {
-                    alert("Błąd przy kończeniu zadania.");
-                    startBtn.disabled = false;
-                  }
-                } else {
-                  alert("Błąd: " + (data.error || "Nie udało się wysłać zdjęcia"));
-                  startBtn.disabled = false;
-                }
-              } catch (err) {
-                alert("Wystąpił błąd: " + err.message);
-                startBtn.disabled = false;
-              }
-            }, "image/jpeg");
-          });
-
-          // Poprawiony licznik czasu:
-          const startTime = new Date("{{ start_time_iso }}");
-      const endTime = {{ 'new Date("' + end_time_iso + '")' if end_time_iso else 'null' }};
-
-      function updateTimer() {
-        const now = new Date();
-        let diffMs;
-
-        if (endTime) {
-          diffMs = endTime - startTime;
-        } else {
-          diffMs = now - startTime;
-        }
-
-        const totalSeconds = Math.floor(diffMs / 1000);
-        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-        const seconds = String(totalSeconds % 60).padStart(2, "0");
-
-        document.getElementById("czas").textContent = `${minutes}:${seconds}`;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        aspectRatio: 16 / 9,
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
       }
+    });
+    video.srcObject = stream;
+  } catch (err) {
+    alert("Nie udało się uzyskać dostępu do kamery: " + err.message);
+    stopCamera();
+  }
+});
 
-      setInterval(updateTimer, 1000);
-      updateTimer();
-        // Polling — wykryj reset przez admina
-      const pollingInterval = setInterval(async () => {
-        try {
-            const res = await fetch(`/api/task_status/{{ task_id }}`);
-            const data = await res.json();
-            if (!data.active) {
-                clearInterval(pollingInterval);
-                alert("Zadanie zostało zresetowane przez administratora.");
-                window.location.href = "/player";
-            }
-        } catch (e) {
-            console.error("Błąd pollingu:", e);
+cancelCameraBtn.addEventListener("click", () => {
+  stopCamera();
+});
+
+takePhotoBtn.addEventListener("click", async () => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  stopCamera();
+
+  canvas.toBlob(async (blob) => {
+    if (!blob) {
+      alert("Błąd podczas tworzenia zdjęcia");
+      startBtn.disabled = false;
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", blob, "{{ username }}_{{ task_id }}.jpg");
+
+    try {
+      const response = await fetch(`/upload_solution/{{ task_id }}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === "success") {
+        const endResponse = await fetch(`/zakoncz_zadanie/{{ task_id }}`, {
+          method: "POST"
+        });
+        const endData = await endResponse.json();
+
+        if (endResponse.ok && endData.status === "zakończono") {
+          alert("Zdjęcie wysłane, zadanie zakończone!");
+          window.location.href = "/player";
+        } else {
+          alert("Błąd przy kończeniu zadania.");
+          startBtn.disabled = false;
         }
-      }, 5000);
+      } else {
+        alert("Błąd: " + (data.error || "Nie udało się wysłać zdjęcia"));
+        startBtn.disabled = false;
+      }
+    } catch (err) {
+      alert("Wystąpił błąd: " + err.message);
+      startBtn.disabled = false;
+    }
+  }, "image/jpeg");
+});
+
+// Licznik czasu
+const startTime = new Date("{{ start_time_iso }}");
+const endTime = {{ 'new Date("' + end_time_iso + '")' if end_time_iso else 'null' }};
+
+function updateTimer() {
+  const now = new Date();
+  const diffMs = endTime ? endTime - startTime : now - startTime;
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  document.getElementById("czas").textContent = `${minutes}:${seconds}`;
+}
+
+setInterval(updateTimer, 1000);
+updateTimer();
+
+// Polling — reset przez admina
+const pollingInterval = setInterval(async () => {
+  try {
+    const res = await fetch(`/api/task_status/{{ task_id }}`);
+    const data = await res.json();
+    if (!data.active) {
+      clearInterval(pollingInterval);
+      alert("Zadanie zostało zresetowane przez administratora.");
+      window.location.href = "/player";
+    }
+  } catch (e) {
+    console.error("Błąd pollingu:", e);
+  }
+}, 5000);
     </script>
   </body>
 </html>
