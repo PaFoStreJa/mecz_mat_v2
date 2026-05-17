@@ -613,6 +613,11 @@ def task_status(task_id):
     if "username" not in session:
         return jsonify({"error": "Unauthorized"}), 401
     username = session["username"]
+
+    user_solutions = zadania_rozwiazania.get(username, set())
+    if task_id in user_solutions:
+        return jsonify({"active": False})
+
     record = next(
         (r for r in task_times
          if r.get("username") == username and r.get("task_id") == task_id),
