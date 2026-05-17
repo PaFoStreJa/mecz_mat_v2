@@ -285,7 +285,6 @@ const pollingInterval = setInterval(async () => {
     const data = await res.json();
     if (!data.active) {
       clearInterval(pollingInterval);
-      alert("Zadanie zostało zresetowane przez administratora.");
       window.location.href = "/player";
     }
   } catch (e) {
